@@ -63,7 +63,6 @@ $SAVEASCNPY$
 # cpp file
 ipgen_template = """
 #define AP_INT_MAX_W $AP_INT_MAX_W$
-#define FREE_RUNNING
 
 #include "bnn-library.h"
 
