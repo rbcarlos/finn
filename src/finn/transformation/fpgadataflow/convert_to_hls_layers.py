@@ -151,11 +151,11 @@ class InferConvInpGenPruned(Transformation):
                     old_shape = model.get_tensor_shape(i2c_output)
                     print("Old shape", old_shape)
                     new_shape = list(old_shape)
-                    new_shape[-1] -= int(self.SIMD_list[layer_ix] * np.mean(self.prune_mask_list[layer_ix]))
+                    new_shape[-1] -= int(self.SIMD_list[layer_ix] * np.sum(self.prune_mask_list[layer_ix]))
                     print("New shape", new_shape)
 
                     assert new_shape[-1] >= self.SIMD_list[layer_ix], "Can't prune so many cols that no data is transmitted."
-
+                    model.set_tensor_shape(i2c_output, new_shape)
                     ConvInpGen_node = helper.make_node(
                         "ConvolutionInputGeneratorPruned",
                         [ConvInpGen_input],
@@ -166,7 +166,7 @@ class InferConvInpGenPruned(Transformation):
                         IFMChannels=ifm_ch,
                         IFMDim=ConvInpGen_idim,
                         OFMDim=ofm_dim,
-                        SIMD=ifm_ch,
+                        SIMD=self.SIMD_list[layer_ix],
                         Stride=stride,
                         inputDataType=dt.name,
                         outputDataType=dt.name,
@@ -184,7 +184,7 @@ class InferConvInpGenPruned(Transformation):
                             node_op = getCustomOp(next_node)
                             # adjust matrix width
                             mw = node_op.get_nodeattr("MW")
-                            mw_new = mw - (self.SIMD_list[layer_ix] * np.mean(self.prune_mask_list[layer_ix]))
+                            mw_new = mw - (self.SIMD_list[layer_ix] * np.sum(self.prune_mask_list[layer_ix]))
                             node_op.set_nodeattr("MW", int(mw_new))
 
                             # Change weight tensor
@@ -192,13 +192,13 @@ class InferConvInpGenPruned(Transformation):
                             # extract and edit old initalizer
                             old_initalizer = model.get_initializer(tensor_to_edit)
                             new_shape = list(old_initalizer.shape)
-                            new_shape[0] -= self.SIMD_list[layer_ix] * np.mean(self.prune_mask_list[layer_ix])
+                            new_shape[0] -= self.SIMD_list[layer_ix] * np.sum(self.prune_mask_list[layer_ix])
                             new_initalizer = np.empty([int(x) for x in new_shape])
                             # copy row wise
                             j = 0
                             for i, row in enumerate(old_initalizer):
                                 # ToDo: this must be done properly, with some sort of pruning mask input
-                                if i < int(np.mean(self.prune_mask_list[layer_ix]) * self.SIMD_list[layer_ix]):
+                                if i < int(np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list[layer_ix]):
                                     continue
                                 new_initalizer[j] = row
                                 j += 1
