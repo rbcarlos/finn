@@ -171,7 +171,7 @@ class InferConvInpGenPruned(Transformation):
                         inputDataType=dt.name,
                         outputDataType=dt.name,
                         depthwise=depthwise,
-                        numColsPruned=self.prune_mask_list[layer_ix],
+                        pruneMask=self.prune_mask_list[layer_ix],
                     )
                     graph.node.insert(ConvInpGen_node_idx, ConvInpGen_node)
                     # Make sure that the next StreamingFCLayer_Batch node is adjusted
