@@ -147,7 +147,7 @@ class InferConvInpGenPruned(Transformation):
                     )
                     graph.node.insert(ConvInpGen_node_idx, ConvInpGen_node)
                 else:
-                    print("Prune mask", prune_mask_list)
+                    print("Prune mask", self.prune_mask_list)
                     # create equivalent ConvolutionInputGenerator node
                     old_shape = model.get_tensor_shape(i2c_output)
                     print("Old shape", old_shape)
