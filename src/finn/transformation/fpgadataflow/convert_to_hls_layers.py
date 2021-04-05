@@ -44,6 +44,173 @@ from finn.transformation.fpgadataflow.minimize_accumulator_width import (
     MinimizeAccumulatorWidth,
 )
 
+class InferConvInpGenPruned(Transformation):
+    """Convert Im2Col layers to ConvolutionInputGenerator layers."""
+
+    def __init__(self, prune_mask_list, adjust_following_MVAU=False, SIMD_list=None):
+        super().__init__()
+        self.adjust_following_MVAU = adjust_following_MVAU
+        self.SIMD_list = SIMD_list
+        # ToDo NumColPruned_list should depend on an actual pruning mask
+        self.prune_mask_list = prune_mask_list
+
+    def apply(self, model):
+        graph = model.graph
+        node_ind = 0
+        layer_ix = 0
+        graph_modified = False
+        for n in graph.node:
+            node_ind += 1
+            if n.op_type == "Im2Col":
+                i2c_input = n.input[0]
+                i2c_output = n.output[0]
+                i2c_in_shape = model.get_tensor_shape(i2c_input)
+                i2c_out_shape = model.get_tensor_shape(i2c_output)
+                dt = model.get_tensor_datatype(i2c_input)
+                if not dt.is_integer():
+                    warnings.warn("Input is not int. Can't infer ConvInpGen")
+                    continue
+                i2c_inst = getCustomOp(n)
+                stride = i2c_inst.get_nodeattr("stride")
+                k_attr = i2c_inst.get_nodeattr("kernel_size")
+                k_h = k_attr[0]
+                k_w = k_attr[1]
+                pad_attr = i2c_inst.get_nodeattr("pad_amount")
+                pad_h = pad_attr[0] + pad_attr[2]
+                pad_w = pad_attr[1] + pad_attr[3]
+                # temporary checks until non-square conv support is finalized
+                assert pad_h == pad_w, "Non-square images not yet supported."
+                assert k_h == k_w, "Non-square kernels not yet supported."
+                k = k_h
+                pad = pad_attr[0]
+                pad_val = i2c_inst.get_nodeattr("pad_value")
+                depthwise = i2c_inst.get_nodeattr("depthwise")
+                ifm_ch = i2c_in_shape[-1]
+                ifm_dim = i2c_in_shape[1]
+                ofm_dim = i2c_out_shape[1]
+
+                # default params for ConvolutionInputGenerator
+                ConvInpGen_node_idx = node_ind
+                ConvInpGen_input = i2c_input
+                ConvInpGen_idim = ifm_dim
+
+                if pad > 0:
+                    # if padding enabled, ensure pad_val supported by DataType
+                    # assert dt.allowed(pad_val),"""FMPadding_Batch DataType
+                    # must support pad_val"""
+                    assert (
+                        pad_val == 0
+                    ), "FMPadding_Batch doesn't currently support pad_val!= 0"
+
+                    odim_padding = ifm_dim + 2 * pad
+
+                    padding_out = helper.make_tensor_value_info(
+                        model.make_new_valueinfo_name(),
+                        TensorProto.FLOAT,
+                        (1, odim_padding, odim_padding, ifm_ch),
+                    )
+                    graph.value_info.append(padding_out)
+                    padding_out = padding_out.name
+                    model.set_tensor_datatype(padding_out, dt)
+
+                    ConvInpGen_node_idx += 1
+                    ConvInpGen_input = padding_out
+                    ConvInpGen_idim = odim_padding
+
+                    padding_node = helper.make_node(
+                        "FMPadding_Batch",
+                        [i2c_input],
+                        [padding_out],
+                        domain="finn.custom_op.fpgadataflow",
+                        backend="fpgadataflow",
+                        ImgDim=ifm_dim,
+                        Padding=2 * pad,
+                        NumChannels=ifm_ch,
+                        inputDataType=dt.name,
+                        SIMD=ifm_ch,
+                    )
+                    graph.node.insert(node_ind, padding_node)
+
+                if stride > 1 and k == 1:
+                    # create DownSampler node
+                    ConvInpGen_node = helper.make_node(
+                        "DownSampler",
+                        [ConvInpGen_input],
+                        [i2c_output],
+                        domain="finn.custom_op.fpgadataflow",
+                        backend="fpgadataflow",
+                        ImgDim=ConvInpGen_idim,
+                        NumChannels=ifm_ch,
+                        SIMD=ifm_ch,
+                        Stride=stride,
+                        inputDataType=dt.name,
+                    )
+                    graph.node.insert(ConvInpGen_node_idx, ConvInpGen_node)
+                else:
+                    # create equivalent ConvolutionInputGenerator node
+                    old_shape = model.get_tensor_shape(i2c_output)
+                    new_shape = list(old_shape)
+                    new_shape[-1] -= int(self.SIMD_list[layer_ix] * np.sum(self.prune_mask_list[layer_ix]))
+
+                    assert new_shape[-1] >= self.SIMD_list[layer_ix], "Can't prune so many cols that no data is transmitted."
+
+                    ConvInpGen_node = helper.make_node(
+                        "ConvolutionInputGeneratorPruned",
+                        [ConvInpGen_input],
+                        [i2c_output],
+                        domain="finn.custom_op.fpgadataflow",
+                        backend="fpgadataflow",
+                        ConvKernelDim=k,
+                        IFMChannels=ifm_ch,
+                        IFMDim=ConvInpGen_idim,
+                        OFMDim=ofm_dim,
+                        SIMD=ifm_ch,
+                        Stride=stride,
+                        inputDataType=dt.name,
+                        outputDataType=dt.name,
+                        depthwise=depthwise,
+                        numColsPruned=self.prune_mask_list[layer_ix],
+                    )
+                    graph.node.insert(ConvInpGen_node_idx, ConvInpGen_node)
+                    # Make sure that the next StreamingFCLayer_Batch node is adjusted
+                    if self.adjust_following_MVAU:
+                        assert type(self.SIMD_list) == type([1]), "SIMD_list must be of type {}, not {}".format(
+                            type([1, ]), type(self.SIMD_list))
+                        next_node = graph.node[node_ind+1]
+                        if next_node.op_type == "StreamingFCLayer_Batch":
+                            # edit next node
+                            node_op = getCustomOp(next_node)
+                            # adjust matrix width
+                            mw = node_op.get_nodeattr("MW")
+                            mw_new = mw - (self.SIMD_list[layer_ix] * np.sum(self.prune_mask_list[layer_ix]))
+                            node_op.set_nodeattr("MW", mw_new)
+
+                            # Change weight tensor
+                            tensor_to_edit = next_node.input[1]
+                            # extract and edit old initalizer
+                            old_initalizer = model.get_initializer(tensor_to_edit)
+                            new_shape = list(old_initalizer.shape)
+                            new_shape[0] -= self.SIMD_list[layer_ix] * np.sum(self.prune_mask_list[layer_ix])
+                            new_initalizer = np.empty(new_shape)
+                            # copy row wise
+                            j = 0
+                            for i, row in enumerate(old_initalizer):
+                                # ToDo: this must be done properly, with some sort of pruning mask input
+                                if i < int(np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list[layer_ix]):
+                                    continue
+                                new_initalizer[j] = row
+                                j += 1
+                            # Use FINN helper function initalizer insertion
+                            model.set_initializer(tensor_to_edit, new_initalizer)
+
+                    layer_ix += 1
+                # remove old nodes
+                graph.node.remove(n)
+                graph_modified = True
+        if graph_modified:
+            model = model.transform(InferShapes())
+            model = model.transform(InferDataTypes())
+        return (model, graph_modified)
 
 class InferConvInpGen(Transformation):
     """Convert Im2Col layers to ConvolutionInputGenerator layers."""
