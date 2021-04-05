@@ -147,7 +147,6 @@ class InferConvInpGenPruned(Transformation):
                     )
                     graph.node.insert(ConvInpGen_node_idx, ConvInpGen_node)
                 else:
-                    print("Prune mask", self.prune_mask_list)
                     # create equivalent ConvolutionInputGenerator node
                     old_shape = model.get_tensor_shape(i2c_output)
                     print("Old shape", old_shape)
@@ -186,7 +185,7 @@ class InferConvInpGenPruned(Transformation):
                             # adjust matrix width
                             mw = node_op.get_nodeattr("MW")
                             mw_new = mw - (self.SIMD_list[layer_ix] * np.sum(self.prune_mask_list[layer_ix]))
-                            node_op.set_nodeattr("MW", mw_new)
+                            node_op.set_nodeattr("MW", int(mw_new))
 
                             # Change weight tensor
                             tensor_to_edit = next_node.input[1]
