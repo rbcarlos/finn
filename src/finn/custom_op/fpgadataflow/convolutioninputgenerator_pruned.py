@@ -114,6 +114,9 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         n_cols_pruned = np.sum(self.get_nodeattr("pruneMask"))
         pad = 0
         ofm_dim = compute_conv_output_dim(ifm_dim, k, stride, pad)
+        print("simd", simd)
+        print("k", k)
+        print("ifm_ch", ifm_ch)
         #oshape = (1, ofm_dim, ofm_dim, k * k * ifm_ch)
         # Remove the columns pruned from the shape
         print("ofm_dim", ofm_dim)
