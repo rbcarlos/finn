@@ -29,8 +29,8 @@ def _suitable_node(node):
 
 
 def _suitable_folded_shapes(ishape, oshape):
-    i_dummy = np.random.rand(*ishape)
-    o_dummy = np.random.rand(*oshape)
+    i_dummy = np.random.rand(*[int(x) for x in ishape])
+    o_dummy = np.random.rand(*[int(x) for x in oshape])
     ishape_canonical = np.squeeze(i_dummy).shape
     oshape_canonical = np.squeeze(o_dummy).shape
     return ishape_canonical == oshape_canonical
