@@ -47,9 +47,10 @@ from finn.transformation.fpgadataflow.minimize_accumulator_width import (
 class InferConvInpGenPruned(Transformation):
     """Convert Im2Col layers to ConvolutionInputGenerator layers."""
 
-    def __init__(self, prune_mask_list, adjust_following_MVAU=False):
+    def __init__(self, prune_mask_list, adjust_following_MVAU=False, SIMD_list=None):
         super().__init__()
         self.adjust_following_MVAU = adjust_following_MVAU
+        self.SIMD_list = SIMD_list
         # ToDo NumColPruned_list should depend on an actual pruning mask
         self.prune_mask_list = prune_mask_list
 
@@ -153,7 +154,7 @@ class InferConvInpGenPruned(Transformation):
                     new_shape[-1] -= int(np.sum(self.prune_mask_list[layer_ix]))
                     print("New shape", new_shape)
 
-                    assert new_shape[-1] >= 1, "Can't prune so many cols that no data is transmitted."
+                    assert new_shape[-1] >= self.SIMD_list[layer_ix], "Can't prune so many cols that no data is transmitted."
                     model.set_tensor_shape(i2c_output, new_shape)
                     ConvInpGen_node = helper.make_node(
                         "ConvolutionInputGeneratorPruned",
@@ -165,7 +166,7 @@ class InferConvInpGenPruned(Transformation):
                         IFMChannels=ifm_ch,
                         IFMDim=ConvInpGen_idim,
                         OFMDim=ofm_dim,
-                        SIMD=1,
+                        SIMD=self.SIMD_list[layer_ix],
                         Stride=stride,
                         inputDataType=dt.name,
                         outputDataType=dt.name,
@@ -175,6 +176,8 @@ class InferConvInpGenPruned(Transformation):
                     graph.node.insert(ConvInpGen_node_idx, ConvInpGen_node)
                     # Make sure that the next StreamingFCLayer_Batch node is adjusted
                     if self.adjust_following_MVAU:
+                        assert type(self.SIMD_list) == type([1]), "SIMD_list must be of type {}, not {}".format(
+                            type([1, ]), type(self.SIMD_list))
                         next_node = graph.node[node_ind+1]
                         if next_node.op_type == "StreamingFCLayer_Batch":
                             # edit next node
