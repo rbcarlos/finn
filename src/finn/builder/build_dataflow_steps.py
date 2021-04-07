@@ -198,10 +198,10 @@ def step_convert_to_hls(model: ModelWrapper, cfg: DataflowBuildConfig):
     # needed for convolutions -- TODO always exec?
     need_conv = len(model.get_nodes_by_op_type("Im2Col")) > 0
     if need_conv:
-        if cfg.simd_list == None or cfg.pruning_masks == None:
+        if cfg.pruning_masks == None:
             model = model.transform(to_hls.InferConvInpGen())
         else:
-            model = model.transform(to_hls.InferConvInpGenPruned(cfg.pruning_masks, adjust_following_MVAU=True, SIMD_list=cfg.simd_list))
+            model = model.transform(to_hls.InferConvInpGenPruned(cfg.pruning_masks, adjust_following_MVAU=True))
         model = model.transform(to_hls.InferStreamingMaxPool())
         model = model.transform(RemoveCNVtoFCFlatten())
     # get rid of Tranpose -> Tranpose identity seq
