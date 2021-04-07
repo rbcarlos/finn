@@ -265,6 +265,8 @@ class DataflowBuildConfig:
 
     pruning_masks: Optional[List[Any]] = None
 
+    simd_list: Optional[List[Any]] = None
+
     def _resolve_hls_clk_period(self):
         if self.hls_clk_period_ns is None:
             # use same clk for synth and hls if not explicitly specified
