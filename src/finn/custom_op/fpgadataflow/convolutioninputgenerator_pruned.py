@@ -100,7 +100,7 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         ifm_dim = self.get_nodeattr("IFMDim")
         ifm_ch = self.get_nodeattr("IFMChannels")
         simd = self.get_nodeattr("SIMD")
-        assert ifm_ch % simd == 0, "SIMD must divide IFMChannels"
+        #assert ifm_ch % simd == 0, "SIMD must divide IFMChannels"
         wf = int(ifm_ch / simd)
         folded_ishape = (1, ifm_dim, ifm_dim, wf, simd)
         return folded_ishape
@@ -132,7 +132,7 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         n_cols_pruned = np.sum(self.get_nodeattr("pruneMask"))
         pad = 0
         ofm_dim = compute_conv_output_dim(ifm_dim, k, stride, pad)
-        assert ifm_ch % simd == 0, "SIMD must divide IFMChannels"
+        #assert ifm_ch % simd == 0, "SIMD must divide IFMChannels"
         #wf = int((k * k * ifm_ch) // simd)
         # Remove the pruned columns from the shape
         wf = int((k * k * ifm_ch) // simd) - n_cols_pruned
@@ -182,7 +182,7 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         ibits = self.get_input_datatype().bitwidth()
         simd = self.get_nodeattr("SIMD")
         ifm_ch = self.get_nodeattr("IFMChannels")
-        assert ifm_ch % simd == 0, "SIMD must divide IFMChannels"
+        #assert ifm_ch % simd == 0, "SIMD must divide IFMChannels"
         in_width = simd * ibits
         return in_width
 
