@@ -47,10 +47,9 @@ from finn.transformation.fpgadataflow.minimize_accumulator_width import (
 class InferConvInpGenPruned(Transformation):
     """Convert Im2Col layers to ConvolutionInputGenerator layers."""
 
-    def __init__(self, prune_mask_list, adjust_following_MVAU=False, SIMD_list=None):
+    def __init__(self, prune_mask_list, adjust_following_MVAU=False):
         super().__init__()
         self.adjust_following_MVAU = adjust_following_MVAU
-        self.SIMD_list = SIMD_list
         # ToDo NumColPruned_list should depend on an actual pruning mask
         self.prune_mask_list = prune_mask_list
 
@@ -151,10 +150,10 @@ class InferConvInpGenPruned(Transformation):
                     old_shape = model.get_tensor_shape(i2c_output)
                     print("Old shape", old_shape)
                     new_shape = list(old_shape)
-                    new_shape[-1] -= int(self.SIMD_list[layer_ix] * np.sum(self.prune_mask_list[layer_ix]))
+                    new_shape[-1] -= int(np.sum(self.prune_mask_list[layer_ix]))
                     print("New shape", new_shape)
 
-                    assert new_shape[-1] >= self.SIMD_list[layer_ix], "Can't prune so many cols that no data is transmitted."
+                    assert new_shape[-1] >= 1, "Can't prune so many cols that no data is transmitted."
                     model.set_tensor_shape(i2c_output, new_shape)
                     ConvInpGen_node = helper.make_node(
                         "ConvolutionInputGeneratorPruned",
@@ -166,7 +165,7 @@ class InferConvInpGenPruned(Transformation):
                         IFMChannels=ifm_ch,
                         IFMDim=ConvInpGen_idim,
                         OFMDim=ofm_dim,
-                        SIMD=self.SIMD_list[layer_ix],
+                        SIMD=1,
                         Stride=stride,
                         inputDataType=dt.name,
                         outputDataType=dt.name,
@@ -176,15 +175,13 @@ class InferConvInpGenPruned(Transformation):
                     graph.node.insert(ConvInpGen_node_idx, ConvInpGen_node)
                     # Make sure that the next StreamingFCLayer_Batch node is adjusted
                     if self.adjust_following_MVAU:
-                        assert type(self.SIMD_list) == type([1]), "SIMD_list must be of type {}, not {}".format(
-                            type([1, ]), type(self.SIMD_list))
                         next_node = graph.node[node_ind+1]
                         if next_node.op_type == "StreamingFCLayer_Batch":
                             # edit next node
                             node_op = getCustomOp(next_node)
                             # adjust matrix width
                             mw = node_op.get_nodeattr("MW")
-                            mw_new = mw - (self.SIMD_list[layer_ix] * np.sum(self.prune_mask_list[layer_ix]))
+                            mw_new = mw - (np.sum(self.prune_mask_list[layer_ix]))
                             node_op.set_nodeattr("MW", int(mw_new))
 
                             # Change weight tensor
@@ -192,13 +189,13 @@ class InferConvInpGenPruned(Transformation):
                             # extract and edit old initalizer
                             old_initalizer = model.get_initializer(tensor_to_edit)
                             new_shape = list(old_initalizer.shape)
-                            new_shape[0] -= self.SIMD_list[layer_ix] * np.sum(self.prune_mask_list[layer_ix])
+                            new_shape[0] -= np.sum(self.prune_mask_list[layer_ix])
                             new_initalizer = np.empty([int(x) for x in new_shape])
                             # copy row wise
                             j = 0
                             for i, row in enumerate(old_initalizer):
                                 # ToDo: this must be done properly, with some sort of pruning mask input
-                                if i < int(np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list[layer_ix]):
+                                if i < int(np.sum(self.prune_mask_list[layer_ix])):
                                     continue
                                 new_initalizer[j] = row
                                 j += 1
