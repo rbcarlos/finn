@@ -191,11 +191,11 @@ class InferConvInpGenPruned(Transformation):
 
                             # Change weight tensor
                             tensor_to_edit = next_node.input[1]
-                            # extract and edit old initalizer
-                            old_initalizer = model.get_initializer(tensor_to_edit)
-                            new_shape = list(old_initalizer.shape)
+                            # extract and edit old initializer
+                            old_initializer = model.get_initializer(tensor_to_edit)
+                            new_shape = list(old_initializer.shape)
                             new_shape[0] -= np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list[layer_ix]
-                            new_initalizer = np.empty([int(x) for x in new_shape])
+                            new_initializer = np.empty([int(x) for x in new_shape])
                             # copy row wise
                             j = 0
                             for i, pruned in enumerate(self.prune_mask_list[layer_ix]):
@@ -204,7 +204,7 @@ class InferConvInpGenPruned(Transformation):
                                 new_initializer[(j * self.SIMD_list[layer_ix]) : ((j+1) * self.SIMD_list[layer_ix])] = old_initializer[(i * self.SIMD_list[layer_ix]) : ((i+1) * self.SIMD_list[layer_ix])]
                                 j += 1
 
-                            model.set_initializer(tensor_to_edit, new_initalizer)
+                            model.set_initializer(tensor_to_edit, new_initializer)
 
                     layer_ix += 1
                 # remove old nodes
