@@ -196,16 +196,16 @@ class InferConvInpGenPruned(Transformation):
                             new_shape = list(old_initalizer.shape)
                             new_shape[0] -= np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list[layer_ix]
                             new_initalizer = np.empty([int(x) for x in new_shape])
+                            print(old_initalizer.dtype)
                             # copy row wise
                             j = 0
                             for i, pruned in enumerate(self.prune_mask_list[layer_ix]):
                                 if pruned:
                                     continue
-                                print(old_initalizer[(i * self.SIMD_list[layer_ix]) : ((i+1) * self.SIMD_list[layer_ix])])
                                 new_initalizer[(j * self.SIMD_list[layer_ix]) : ((j+1) * self.SIMD_list[layer_ix])] = old_initalizer[(i * self.SIMD_list[layer_ix]) : ((i+1) * self.SIMD_list[layer_ix])]
                                 j += 1
 
-
+                            print(new_initalizer.dtype)
                             model.set_initializer(tensor_to_edit, new_initalizer)
 
                     layer_ix += 1
