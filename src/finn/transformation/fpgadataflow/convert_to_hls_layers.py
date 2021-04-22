@@ -205,7 +205,7 @@ class InferConvInpGenPruned(Transformation):
                                 new_initalizer[(j * self.SIMD_list[layer_ix]) : ((j+1) * self.SIMD_list[layer_ix])] = old_initalizer[(i * self.SIMD_list[layer_ix]) : ((i+1) * self.SIMD_list[layer_ix])]
                                 j += 1
 
-                            new_initalizer = new_initalizer.astype(np.float32)
+                            new_initalizer = new_initalizer.astype(old_initalizer.dtype)
                             model.set_initializer(tensor_to_edit, new_initalizer)
 
                     layer_ix += 1
