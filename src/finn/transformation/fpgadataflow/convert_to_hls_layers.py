@@ -151,10 +151,8 @@ class InferConvInpGenPruned(Transformation):
                 else:
                     # create equivalent ConvolutionInputGenerator node
                     old_shape = model.get_tensor_shape(i2c_output)
-                    print("Old shape", old_shape)
                     new_shape = list(old_shape)
                     new_shape[-1] -= int(np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list[layer_ix])
-                    print("New shape", new_shape)
 
                     assert new_shape[-1] >= self.SIMD_list[layer_ix], "Can't prune so many cols that no data is transmitted."
                     model.set_tensor_shape(i2c_output, new_shape)

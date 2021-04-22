@@ -114,12 +114,8 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         n_cols_pruned = np.sum(self.get_nodeattr("pruneMask"))
         pad = 0
         ofm_dim = compute_conv_output_dim(ifm_dim, k, stride, pad)
-        print("simd", simd)
-        print("k", k)
-        print("ifm_ch", ifm_ch)
         #oshape = (1, ofm_dim, ofm_dim, k * k * ifm_ch)
         # Remove the columns pruned from the shape
-        print("ofm_dim", ofm_dim)
         oshape = (1, ofm_dim, ofm_dim, k * k * ifm_ch - int(n_cols_pruned * simd))
         return oshape
 
@@ -145,7 +141,6 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         ishape = tuple(model.get_tensor_shape(self.onnx_node.input[0]))
         assert ishape == exp_ishape, "Unexpect input shape for ConvInpGen."
         # implement tensor with correct shape
-        print(oshape)
         values = np.random.randn(*oshape).astype(np.float32)
         return helper.make_node(
             "Constant",
