@@ -111,10 +111,7 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         ifm_ch = self.get_nodeattr("IFMChannels")
         stride = self.get_nodeattr("Stride")
         simd = self.get_nodeattr("SIMD")
-        prune_mask = self.get_nodeattr("pruneMask")
-        prune_mask = prune_mask[::simd]
-        n_cols_pruned = np.sum(prune_mask)
-
+        n_cols_pruned = np.sum(self.get_nodeattr("pruneMask"))
         pad = 0
         ofm_dim = compute_conv_output_dim(ifm_dim, k, stride, pad)
         #oshape = (1, ofm_dim, ofm_dim, k * k * ifm_ch)
@@ -128,9 +125,7 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         ifm_ch = self.get_nodeattr("IFMChannels")
         stride = self.get_nodeattr("Stride")
         simd = self.get_nodeattr("SIMD")
-        prune_mask = self.get_nodeattr("pruneMask")
-        prune_mask = prune_mask[::simd]
-        n_cols_pruned = np.sum(prune_mask)
+        n_cols_pruned = np.sum(self.get_nodeattr("pruneMask"))
         pad = 0
         ofm_dim = compute_conv_output_dim(ifm_dim, k, stride, pad)
         assert ifm_ch % simd == 0, "SIMD must divide IFMChannels"
@@ -398,7 +393,7 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         pruneMask = self.get_nodeattr("pruneMask")
 
         pruneList = []
-        for i in range(0,len(pruneMask), self.get_nodeattr("SIMD")):
+        for i in range(len(pruneMask)):
             if pruneMask[i]:
                 pruneList.append("true,")
             else:
