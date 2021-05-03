@@ -111,12 +111,15 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         ifm_ch = self.get_nodeattr("IFMChannels")
         stride = self.get_nodeattr("Stride")
         simd = self.get_nodeattr("SIMD")
-        n_cols_pruned = np.sum(self.get_nodeattr("pruneMask"))
+        prune_mask = self.get_nodeattr("pruneMask")
+        prune_mask = prune_mask[::simd]
+        n_cols_pruned = np.sum(prune_mask)
+
         pad = 0
         ofm_dim = compute_conv_output_dim(ifm_dim, k, stride, pad)
         #oshape = (1, ofm_dim, ofm_dim, k * k * ifm_ch)
         # Remove the columns pruned from the shape
-        oshape = (1, ofm_dim, ofm_dim, k * k * ifm_ch - int(n_cols_pruned))
+        oshape = (1, ofm_dim, ofm_dim, k * k * ifm_ch - int(n_cols_pruned * simd))
         return oshape
 
     def get_folded_output_shape(self):
@@ -125,13 +128,15 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         ifm_ch = self.get_nodeattr("IFMChannels")
         stride = self.get_nodeattr("Stride")
         simd = self.get_nodeattr("SIMD")
-        n_cols_pruned = np.sum(self.get_nodeattr("pruneMask"))
+        prune_mask = self.get_nodeattr("pruneMask")
+        prune_mask = prune_mask[::simd]
+        n_cols_pruned = np.sum(prune_mask)
         pad = 0
         ofm_dim = compute_conv_output_dim(ifm_dim, k, stride, pad)
         assert ifm_ch % simd == 0, "SIMD must divide IFMChannels"
         #wf = int((k * k * ifm_ch) // simd)
         # Remove the pruned columns from the shape
-        wf = int((k * k * ifm_ch - n_cols_pruned) // simd)
+        wf = int((k * k * ifm_ch) // simd) - n_cols_pruned
         folded_oshape = (1, ofm_dim, ofm_dim, wf, simd)
         return folded_oshape
 
@@ -393,7 +398,7 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         pruneMask = self.get_nodeattr("pruneMask")
 
         pruneList = []
-        for i in range(0, len(pruneMask), self.get_nodeattr("SIMD")):
+        for i in range(0,len(pruneMask), self.get_nodeattr("SIMD")):
             if pruneMask[i]:
                 pruneList.append("true,")
             else:
