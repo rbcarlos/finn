@@ -201,7 +201,7 @@ class InferConvInpGenPruned(Transformation):
                             for i, pruned in enumerate(self.prune_mask_list[layer_ix]):
                                 if pruned:
                                     continue
-                                new_initalizer[(j * self.SIMD_list_fc[layer_ix]) : ((j+1) * self.SIMD_list_fc[layer_ix])] = old_initalizer[(i * self.SIMD_list_fc[layer_ix]) : ((i+1) * self.SIMD_list[layer_ix])]
+                                new_initalizer[(j * self.SIMD_list_fc[layer_ix]) : ((j+1) * self.SIMD_list_fc[layer_ix])] = old_initalizer[(i * self.SIMD_list_fc[layer_ix]) : ((i+1) * self.SIMD_list_fc[layer_ix])]
                                 j += 1
 
                             new_initalizer = new_initalizer.astype(old_initalizer.dtype)
