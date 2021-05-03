@@ -198,10 +198,11 @@ class InferConvInpGenPruned(Transformation):
                             # copy row wise
                             j = 0
                             for i, pruned in enumerate(self.prune_mask_list[layer_ix]):
-                                if pruned:
-                                    continue
-                                new_initalizer[(j * self.SIMD_list[layer_ix]) : ((j+1) * self.SIMD_list[layer_ix])] = old_initalizer[(i * self.SIMD_list[layer_ix]) : ((i+1) * self.SIMD_list[layer_ix])]
-                                j += 1
+                                if i % self.SIMD_list[layer_ix] == 0:
+                                    if pruned:
+                                        continue
+                                    new_initalizer[(j * self.SIMD_list[layer_ix]) : ((j+1) * self.SIMD_list[layer_ix])] = old_initalizer[(i * self.SIMD_list[layer_ix]) : ((i+1) * self.SIMD_list[layer_ix])]
+                                    j += 1
 
                             new_initalizer = new_initalizer.astype(old_initalizer.dtype)
                             model.set_initializer(tensor_to_edit, new_initalizer)
