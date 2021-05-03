@@ -116,7 +116,7 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         ofm_dim = compute_conv_output_dim(ifm_dim, k, stride, pad)
         #oshape = (1, ofm_dim, ofm_dim, k * k * ifm_ch)
         # Remove the columns pruned from the shape
-        oshape = (1, ofm_dim, ofm_dim, k * k * ifm_ch - int(n_cols_pruned * simd))
+        oshape = (1, ofm_dim, ofm_dim, k * k * ifm_ch - int(n_cols_pruned))
         return oshape
 
     def get_folded_output_shape(self):
@@ -131,7 +131,7 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         assert ifm_ch % simd == 0, "SIMD must divide IFMChannels"
         #wf = int((k * k * ifm_ch) // simd)
         # Remove the pruned columns from the shape
-        wf = int((k * k * ifm_ch) // simd) - n_cols_pruned
+        wf = int((k * k * ifm_ch - n_cols_pruned) // simd)
         folded_oshape = (1, ofm_dim, ofm_dim, wf, simd)
         return folded_oshape
 

@@ -52,8 +52,8 @@ class InferConvInpGenPruned(Transformation):
         self.adjust_following_MVAU = adjust_following_MVAU
         self.SIMD_list = SIMD_list
         # ToDo NumColPruned_list should depend on an actual pruning mask
-        for i, (simd, prune) in enumerate(zip(SIMD_list, prune_mask_list)):
-            prune_mask_list[i] = prune[::simd]
+        #for i, (simd, prune) in enumerate(zip(SIMD_list, prune_mask_list)):
+        #    prune_mask_list[i] = prune[::simd]
         self.prune_mask_list = prune_mask_list
 
     def apply(self, model):
@@ -152,7 +152,7 @@ class InferConvInpGenPruned(Transformation):
                     # create equivalent ConvolutionInputGenerator node
                     old_shape = model.get_tensor_shape(i2c_output)
                     new_shape = list(old_shape)
-                    new_shape[-1] -= int(np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list[layer_ix])
+                    new_shape[-1] -= int(np.sum(self.prune_mask_list[layer_ix]))
 
                     assert new_shape[-1] >= self.SIMD_list[layer_ix], "Can't prune so many cols that no data is transmitted."
                     model.set_tensor_shape(i2c_output, new_shape)
@@ -184,7 +184,7 @@ class InferConvInpGenPruned(Transformation):
                             node_op = getCustomOp(next_node)
                             # adjust matrix width
                             mw = node_op.get_nodeattr("MW")
-                            mw_new = mw - (np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list[layer_ix])
+                            mw_new = mw - (np.sum(self.prune_mask_list[layer_ix]))
                             node_op.set_nodeattr("MW", int(mw_new))
 
                             # Change weight tensor
@@ -192,7 +192,7 @@ class InferConvInpGenPruned(Transformation):
                             # extract and edit old initalizer
                             old_initalizer = model.get_initializer(tensor_to_edit)
                             new_shape = list(old_initalizer.shape)
-                            new_shape[0] -= np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list[layer_ix]
+                            new_shape[0] -= np.sum(self.prune_mask_list[layer_ix])
                             new_initalizer = np.empty([int(x) for x in new_shape])
 
                             # copy row wise
