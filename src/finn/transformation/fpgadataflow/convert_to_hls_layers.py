@@ -47,13 +47,12 @@ from finn.transformation.fpgadataflow.minimize_accumulator_width import (
 class InferConvInpGenPruned(Transformation):
     """Convert Im2Col layers to ConvolutionInputGenerator layers."""
 
-    def __init__(self, prune_mask_list, adjust_following_MVAU=False, SIMD_list_fc=None, SIMD_list_gen=None):
+    def __init__(self, prune_mask_list, adjust_following_MVAU=False, SIMD_list=None):
         super().__init__()
         self.adjust_following_MVAU = adjust_following_MVAU
-        self.SIMD_list_fc = SIMD_list_fc
-        self.SIMD_list_gen = SIMD_list_gen
+        self.SIMD_list = SIMD_list
         # ToDo NumColPruned_list should depend on an actual pruning mask
-        for i, (simd, prune) in enumerate(zip(SIMD_list_fc, prune_mask_list)):
+        for i, (simd, prune) in enumerate(zip(SIMD_list, prune_mask_list)):
             prune_mask_list[i] = prune[::simd]
         self.prune_mask_list = prune_mask_list
 
@@ -153,9 +152,9 @@ class InferConvInpGenPruned(Transformation):
                     # create equivalent ConvolutionInputGenerator node
                     old_shape = model.get_tensor_shape(i2c_output)
                     new_shape = list(old_shape)
-                    new_shape[-1] -= int(np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list_fc[layer_ix])
+                    new_shape[-1] -= int(np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list[layer_ix])
 
-                    assert new_shape[-1] >= self.SIMD_list_fc[layer_ix], "Can't prune so many cols that no data is transmitted."
+                    assert new_shape[-1] >= self.SIMD_list[layer_ix], "Can't prune so many cols that no data is transmitted."
                     model.set_tensor_shape(i2c_output, new_shape)
                     ConvInpGen_node = helper.make_node(
                         "ConvolutionInputGeneratorPruned",
@@ -167,25 +166,25 @@ class InferConvInpGenPruned(Transformation):
                         IFMChannels=ifm_ch,
                         IFMDim=ConvInpGen_idim,
                         OFMDim=ofm_dim,
-                        SIMD=self.SIMD_list_gen[layer_ix],
+                        SIMD=self.SIMD_list[layer_ix],
                         Stride=stride,
                         inputDataType=dt.name,
                         outputDataType=dt.name,
                         depthwise=depthwise,
-                        pruneMask=self.prune_mask_list[layer_ix][::self.SIMD_list_gen[layer_ix]],
+                        pruneMask=self.prune_mask_list[layer_ix],
                     )
                     graph.node.insert(ConvInpGen_node_idx, ConvInpGen_node)
                     # Make sure that the next StreamingFCLayer_Batch node is adjusted
                     if self.adjust_following_MVAU:
-                        assert type(self.SIMD_list_fc) == type([1]), "SIMD_list_fc must be of type {}, not {}".format(
-                            type([1, ]), type(self.SIMD_list_fc))
+                        assert type(self.SIMD_list) == type([1]), "SIMD_list must be of type {}, not {}".format(
+                            type([1, ]), type(self.SIMD_list))
                         next_node = graph.node[node_ind+1]
                         if next_node.op_type == "StreamingFCLayer_Batch":
                             # edit next node
                             node_op = getCustomOp(next_node)
                             # adjust matrix width
                             mw = node_op.get_nodeattr("MW")
-                            mw_new = mw - (np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list_fc[layer_ix])
+                            mw_new = mw - (np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list[layer_ix])
                             node_op.set_nodeattr("MW", int(mw_new))
 
                             # Change weight tensor
@@ -193,7 +192,7 @@ class InferConvInpGenPruned(Transformation):
                             # extract and edit old initalizer
                             old_initalizer = model.get_initializer(tensor_to_edit)
                             new_shape = list(old_initalizer.shape)
-                            new_shape[0] -= np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list_fc[layer_ix]
+                            new_shape[0] -= np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list[layer_ix]
                             new_initalizer = np.empty([int(x) for x in new_shape])
 
                             # copy row wise
@@ -201,7 +200,7 @@ class InferConvInpGenPruned(Transformation):
                             for i, pruned in enumerate(self.prune_mask_list[layer_ix]):
                                 if pruned:
                                     continue
-                                new_initalizer[(j * self.SIMD_list_fc[layer_ix]) : ((j+1) * self.SIMD_list_fc[layer_ix])] = old_initalizer[(i * self.SIMD_list_fc[layer_ix]) : ((i+1) * self.SIMD_list_fc[layer_ix])]
+                                new_initalizer[(j * self.SIMD_list[layer_ix]) : ((j+1) * self.SIMD_list[layer_ix])] = old_initalizer[(i * self.SIMD_list[layer_ix]) : ((i+1) * self.SIMD_list[layer_ix])]
                                 j += 1
 
                             new_initalizer = new_initalizer.astype(old_initalizer.dtype)

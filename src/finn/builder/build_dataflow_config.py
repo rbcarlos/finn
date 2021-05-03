@@ -265,9 +265,7 @@ class DataflowBuildConfig:
 
     pruning_masks: Optional[List[Any]] = None
 
-    simd_list_fc: Optional[List[Any]] = None
-
-    simd_list_gen: Optional[List[Any]] = None
+    simd_list: Optional[List[Any]] = None
 
     def _resolve_hls_clk_period(self):
         if self.hls_clk_period_ns is None:
