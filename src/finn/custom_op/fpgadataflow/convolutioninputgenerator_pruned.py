@@ -393,7 +393,7 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         pruneMask = self.get_nodeattr("pruneMask")
 
         pruneList = []
-        for i in range(len(pruneMask)):
+        for i in range(0, len(pruneMask), self.get_nodeattr("SIMD")):
             if pruneMask[i]:
                 pruneList.append("true,")
             else:
