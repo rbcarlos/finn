@@ -53,7 +53,7 @@ class InferConvInpGenPruned(Transformation):
         self.SIMD_list = SIMD_list
         self.SIMD_list_gen = SIMD_list_gen
         
-        self.original_mask = prune_mask_list_gen.copy()
+        self.original_mask = prune_mask_list.copy()
 
         # ToDo NumColPruned_list should depend on an actual pruning mask
         for i, (simd, prune) in enumerate(zip(SIMD_list, prune_mask_list)):
