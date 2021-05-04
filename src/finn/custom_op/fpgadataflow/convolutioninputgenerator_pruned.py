@@ -393,6 +393,8 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         defineString += """\nnamespace PARAM{static const bool ColsToPrune["""
         defineString += str(numCols) + """]={"""
         pruneMask = self.get_nodeattr("pruneMask")
+        print("mask size", len(pruneMask))
+        print("mask", pruneMask)
 
         pruneList = []
         for i in range(len(pruneMask)):
