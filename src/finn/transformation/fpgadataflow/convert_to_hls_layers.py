@@ -47,17 +47,20 @@ from finn.transformation.fpgadataflow.minimize_accumulator_width import (
 class InferConvInpGenPruned(Transformation):
     """Convert Im2Col layers to ConvolutionInputGenerator layers."""
 
-    def __init__(self, prune_mask_list, adjust_following_MVAU=False, SIMD_list=None, SIMD_list_gen=None):
+    def __init__(self, prune_mask_list, adjust_following_MVAU=False, SIMD_list=None, SIMD_list_gen=None, prune_mask_list_gen=None):
         super().__init__()
         self.adjust_following_MVAU = adjust_following_MVAU
         self.SIMD_list = SIMD_list
         self.SIMD_list_gen = SIMD_list_gen
-        self.prune_mask_list = prune_mask_list
-        self.original_mask = prune_mask_list
-        # ToDo NumColPruned_list should depend on an actual pruning mask
-        for i, (simd, prune) in enumerate(zip(SIMD_list, self.prune_mask_list)):
-            self.prune_mask_list[i] = prune[::simd]
         
+        # ToDo NumColPruned_list should depend on an actual pruning mask
+        for i, (simd, prune) in enumerate(zip(SIMD_list, prune_mask_list)):
+            prune_mask_list[i] = prune[::simd]
+        for i, (simd, prune) in enumerate(zip(SIMD_list_gen, prune_mask_list_gen)):
+            prune_mask_list_gen[i] = prune[::simd]
+
+        self.prune_mask_list = prune_mask_list
+        self.original_mask = prune_mask_list_gen
 
     def apply(self, model):
         graph = model.graph
@@ -160,8 +163,7 @@ class InferConvInpGenPruned(Transformation):
                     assert new_shape[-1] >= self.SIMD_list[layer_ix], "Can't prune so many cols that no data is transmitted."
                     model.set_tensor_shape(i2c_output, new_shape)
 
-                    mask_gen = self.original_mask[layer_ix][::self.SIMD_list_gen[layer_ix]]
-                    print("sum mask", np.sum(mask_gen))
+                    mask_gen = self.original_mask[layer_ix]
                     print("prune_mask_list", np.array(self.prune_mask_list[layer_ix]).shape)
                     print("original_mask", np.array(self.original_mask[layer_ix]).shape)
                     ConvInpGen_node = helper.make_node(
