@@ -117,6 +117,7 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         #oshape = (1, ofm_dim, ofm_dim, k * k * ifm_ch)
         # Remove the columns pruned from the shape
         oshape = (1, ofm_dim, ofm_dim, k * k * ifm_ch - int(n_cols_pruned * simd))
+        print("generator normal oshape", oshape)
         return oshape
 
     def get_folded_output_shape(self):
@@ -133,6 +134,7 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         # Remove the pruned columns from the shape
         wf = int((k * k * ifm_ch) // simd) - n_cols_pruned
         folded_oshape = (1, ofm_dim, ofm_dim, wf, simd)
+        print("generator folded oshape", folded_oshape)
         return folded_oshape
 
     def make_shape_compatible_op(self, model):
