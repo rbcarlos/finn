@@ -201,7 +201,7 @@ def step_convert_to_hls(model: ModelWrapper, cfg: DataflowBuildConfig):
         if cfg.simd_list == None or cfg.pruning_masks == None:
             model = model.transform(to_hls.InferConvInpGen())
         else:
-            model = model.transform(to_hls.InferConvInpGenPruned(cfg.pruning_masks, adjust_following_MVAU=True, SIMD_list=cfg.simd_list))
+            model = model.transform(to_hls.InferConvInpGenPruned(cfg.pruning_masks, adjust_following_MVAU=True, SIMD_list=cfg.simd_list, SIMD_list_gen = cfg.simd_list_gen))
         model = model.transform(to_hls.InferStreamingMaxPool())
         model = model.transform(RemoveCNVtoFCFlatten())
     # get rid of Tranpose -> Tranpose identity seq
