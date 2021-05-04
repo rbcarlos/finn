@@ -52,10 +52,12 @@ class InferConvInpGenPruned(Transformation):
         self.adjust_following_MVAU = adjust_following_MVAU
         self.SIMD_list = SIMD_list
         self.SIMD_list_gen = SIMD_list_gen
-        # ToDo NumColPruned_list should depend on an actual pruning mask
-        for i, (simd, prune) in enumerate(zip(SIMD_list, prune_mask_list)):
-            prune_mask_list[i] = prune[::simd]
         self.prune_mask_list = prune_mask_list
+        self.original_mask = prune_mask_list
+        # ToDo NumColPruned_list should depend on an actual pruning mask
+        for i, (simd, prune) in enumerate(zip(SIMD_list, self.prune_mask_list)):
+            self.prune_mask_list[i] = prune[::simd]
+        
 
     def apply(self, model):
         graph = model.graph
@@ -157,6 +159,9 @@ class InferConvInpGenPruned(Transformation):
 
                     assert new_shape[-1] >= self.SIMD_list[layer_ix], "Can't prune so many cols that no data is transmitted."
                     model.set_tensor_shape(i2c_output, new_shape)
+
+                    mask_gen = self.original_mask[::self.SIMD_list_gen[layer_ix]]
+                    print("sum mask", np.sum(mask_gen))
                     ConvInpGen_node = helper.make_node(
                         "ConvolutionInputGeneratorPruned",
                         [ConvInpGen_input],
@@ -172,7 +177,7 @@ class InferConvInpGenPruned(Transformation):
                         inputDataType=dt.name,
                         outputDataType=dt.name,
                         depthwise=depthwise,
-                        pruneMask=self.prune_mask_list[layer_ix][::self.SIMD_list[layer_ix]//self.SIMD_list_gen[layer_ix]],
+                        pruneMask= mask_gen,
                     )
                     graph.node.insert(ConvInpGen_node_idx, ConvInpGen_node)
                     # Make sure that the next StreamingFCLayer_Batch node is adjusted
