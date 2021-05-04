@@ -162,8 +162,8 @@ class InferConvInpGenPruned(Transformation):
 
                     mask_gen = self.original_mask[layer_ix][::self.SIMD_list_gen[layer_ix]]
                     print("sum mask", np.sum(mask_gen))
-                    print("prune_mask_list", np.array(self.prune_mask_list).shape)
-                    print("original_mask", np.array(self.original_mask).shape)
+                    print("prune_mask_list", np.array(self.prune_mask_list[layer_ix]).shape)
+                    print("original_mask", np.array(self.original_mask[layer_ix]).shape)
                     ConvInpGen_node = helper.make_node(
                         "ConvolutionInputGeneratorPruned",
                         [ConvInpGen_input],
