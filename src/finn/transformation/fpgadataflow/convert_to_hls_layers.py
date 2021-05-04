@@ -52,7 +52,6 @@ class InferConvInpGenPruned(Transformation):
         self.adjust_following_MVAU = adjust_following_MVAU
         self.SIMD_list = SIMD_list
         self.SIMD_list_gen = SIMD_list_gen
-        self.original_mask = prune_mask_list
         # ToDo NumColPruned_list should depend on an actual pruning mask
         for i, (simd, prune) in enumerate(zip(SIMD_list, prune_mask_list)):
             prune_mask_list[i] = prune[::simd]
@@ -173,7 +172,7 @@ class InferConvInpGenPruned(Transformation):
                         inputDataType=dt.name,
                         outputDataType=dt.name,
                         depthwise=depthwise,
-                        pruneMask=self.original_mask[layer_ix][::self.SIMD_list_gen[layer_ix]],
+                        pruneMask=self.prune_mask_list[layer_ix][::self.SIMD_list[layer_ix]//self.SIMD_list_gen[layer_ix]],
                     )
                     graph.node.insert(ConvInpGen_node_idx, ConvInpGen_node)
                     # Make sure that the next StreamingFCLayer_Batch node is adjusted
