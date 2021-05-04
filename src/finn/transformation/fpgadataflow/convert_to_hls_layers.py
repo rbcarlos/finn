@@ -160,7 +160,7 @@ class InferConvInpGenPruned(Transformation):
                     assert new_shape[-1] >= self.SIMD_list[layer_ix], "Can't prune so many cols that no data is transmitted."
                     model.set_tensor_shape(i2c_output, new_shape)
 
-                    mask_gen = self.original_mask[::self.SIMD_list_gen[layer_ix]]
+                    mask_gen = self.original_mask[layer_ix][::self.SIMD_list_gen[layer_ix]]
                     print("sum mask", np.sum(mask_gen))
                     ConvInpGen_node = helper.make_node(
                         "ConvolutionInputGeneratorPruned",
