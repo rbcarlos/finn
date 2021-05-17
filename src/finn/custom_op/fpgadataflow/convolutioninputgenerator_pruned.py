@@ -114,8 +114,7 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         n_cols_pruned = np.sum(self.get_nodeattr("pruneMask"))
         pad = 0
         ofm_dim = compute_conv_output_dim(ifm_dim, k, stride, pad)
-        #oshape = (1, ofm_dim, ofm_dim, k * k * ifm_ch)
-        # Remove the columns pruned from the shape
+        # Remove the columns pruned from the shape (total, not resampled)
         oshape = (1, ofm_dim, ofm_dim, k * k * ifm_ch - int(n_cols_pruned * simd))
         print("generator normal oshape", oshape)
         return oshape
@@ -130,8 +129,7 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         pad = 0
         ofm_dim = compute_conv_output_dim(ifm_dim, k, stride, pad)
         assert ifm_ch % simd == 0, "SIMD must divide IFMChannels"
-        #wf = int((k * k * ifm_ch) // simd)
-        # Remove the pruned columns from the shape
+        # Remove the pruned columns from the shape (resampled)
         wf = int((k * k * ifm_ch) // simd) - n_cols_pruned
         folded_oshape = (1, ofm_dim, ofm_dim, wf, simd)
         print("generator folded oshape", folded_oshape)
@@ -389,7 +387,7 @@ class ConvolutionInputGeneratorPruned(HLSCustomOp):
         numCols = (self.get_nodeattr("ConvKernelDim") ** 2) * self.get_nodeattr("IFMChannels") / self.get_nodeattr("SIMD")
         numCols = int(numCols)
 
-        # Add the prune mask as list of booleans
+        # Add the prune mask as list of booleans, these are already resampled when coming to this class
         defineString += """\nnamespace PARAM{static const bool ColsToPrune["""
         defineString += str(numCols) + """]={"""
         pruneMask = self.get_nodeattr("pruneMask")

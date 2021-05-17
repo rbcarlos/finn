@@ -55,7 +55,7 @@ class InferConvInpGenPruned(Transformation):
         
         self.original_mask = prune_mask_list.copy()
 
-        # ToDo NumColPruned_list should depend on an actual pruning mask
+        # resample the pruning masks to take only every simdth element
         for i, (simd, prune) in enumerate(zip(SIMD_list, prune_mask_list)):
             prune_mask_list[i] = prune[::simd]
 
@@ -160,7 +160,6 @@ class InferConvInpGenPruned(Transformation):
                     new_shape = list(old_shape)
                     new_shape[-1] -= int(np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list[layer_ix])
 
-                    assert new_shape[-1] >= self.SIMD_list[layer_ix], "Can't prune so many cols that no data is transmitted."
                     model.set_tensor_shape(i2c_output, new_shape)
 
                     mask_gen = self.original_mask[layer_ix][::self.SIMD_list_gen[layer_ix]]
@@ -175,12 +174,12 @@ class InferConvInpGenPruned(Transformation):
                         IFMChannels=ifm_ch,
                         IFMDim=ConvInpGen_idim,
                         OFMDim=ofm_dim,
-                        SIMD=self.SIMD_list_gen[layer_ix],
+                        SIMD=self.SIMD_list_gen[layer_ix], #CIGP simd
                         Stride=stride,
                         inputDataType=dt.name,
                         outputDataType=dt.name,
                         depthwise=depthwise,
-                        pruneMask= mask_gen,
+                        pruneMask= mask_gen, # pruning mask resampled using the CIGP simd
                     )
                     graph.node.insert(ConvInpGen_node_idx, ConvInpGen_node)
                     # Make sure that the next StreamingFCLayer_Batch node is adjusted
@@ -191,7 +190,7 @@ class InferConvInpGenPruned(Transformation):
                         if next_node.op_type == "StreamingFCLayer_Batch":
                             # edit next node
                             node_op = getCustomOp(next_node)
-                            # adjust matrix width
+                            # decrease the MW by the number of columns pruned (total, not resampled)
                             mw = node_op.get_nodeattr("MW")
                             mw_new = mw - (np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list[layer_ix])
                             node_op.set_nodeattr("MW", int(mw_new))
@@ -204,7 +203,7 @@ class InferConvInpGenPruned(Transformation):
                             new_shape[0] -= np.sum(self.prune_mask_list[layer_ix]) * self.SIMD_list[layer_ix]
                             new_initalizer = np.empty([int(x) for x in new_shape])
 
-                            # copy row wise
+                            # copy the weights over to the new initializer, unless they were pruned
                             j = 0
                             for i, pruned in enumerate(self.prune_mask_list[layer_ix]):
                                 if pruned:
